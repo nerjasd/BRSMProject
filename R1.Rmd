@@ -1,0 +1,193 @@
+---
+title: "Heart Dataset - 1"
+author: "Neeraj Asdev"
+date: "2023-04-13"
+output: word_document
+---
+
+---------------------------------------------------------------------------------------------------------------
+## 1. IMPORT NECESSARY LIBRARIES
+
+```{r}
+
+library(readxl)
+library(ggplot2)
+library(reshape2)
+library(corrplot)
+library(png)
+library(car)
+library(vcd)
+library(logistf)
+library(lmtest)
+
+```
+
+
+
+---------------------------------------------------------------------------------------------------------------
+
+## 2. LOADING THE DATA AND CONSTRUCTING A HEATMAP
+
+```{r}
+# Load the data from the CSV file
+heart_data <- read.csv("D:/MTECH SEM 2/BRSM/Project Dataset/heart/heart.csv")
+
+
+# Calculate the correlation coefficients
+correlations <- cor(heart_data)
+
+# Set the dimensions of the output file
+png("correlation_plot.png", width=1920, height=1080)
+
+# Create a correlation plot using corrplot
+corrplot(correlations, method="color", type="lower", 
+         tl.col="black", tl.srt=45, tl.cex=1.0, 
+         cl.lim=c(-1,1), addCoef.col="black", 
+         mar=c(0,0,2,0), cex.axis=0.7,sig.level = 0.01)
+
+# Save the output file
+dev.off()
+
+
+```
+
+
+
+---------------------------------------------------------------------------------------------------------------
+## 3. BASIC STATISTICS OF ALL THE VARIABLES
+
+```{r}
+
+summary(heart_data)
+
+
+```
+
+
+
+---------------------------------------------------------------------------------------------------------------
+## 4. TESTING THE SAMPLE NULL HYPOTHESIS (SINGLE VARIABLE EFFECT)
+
+```{r}
+
+
+var1 = heart_data$HeartDiseaseorAttack
+var2 = heart_data$Smoker
+res1 <- chisq.test(var1,var2)
+cat("Association between Heart Disease and Smoking\n")
+print(res1)
+# calculate residuals
+residuals <- as.matrix(res1$residuals)
+
+
+```
+
+
+---------------------------------------------------------------------------------------------------------------
+## 5. CHECKING THE TYPE OF VARIABLES
+
+```{r}
+for (var in names(heart_data)) {
+  if (class(heart_data[[var]]) == "logical" || length(unique(heart_data[[var]])) == 2) {
+    print(paste(var, "is binary"))
+  } else {
+    print(paste(var, "is not binary"))
+  }
+}
+```
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------
+## 6. IMPLEMENTING A LOGISTIC REGRESSION MODEL TO CARVE OUT THE SIGNIFICANT VARIABLES
+
+```{r}
+
+target = heart_data$HeartDiseaseorAttack
+logreg <- glm(target ~ heart_data$HighBP + heart_data$HighChol + heart_data$CholCheck + heart_data$BMI + heart_data$Smoker + heart_data$Stroke + heart_data$Diabetes + heart_data$PhysActivity + heart_data$Fruits + heart_data$Veggies + heart_data$HvyAlcoholConsump + heart_data$AnyHealthcare + heart_data$NoDocbcCost + heart_data$GenHlth + heart_data$MentHlth + heart_data$PhysHlth + heart_data$DiffWalk + heart_data$Sex + heart_data$Age + heart_data$Education + heart_data$Income, data = heart_data, family = binomial())
+
+summary(logreg)
+list <- summary(logreg)$coefficients[,4]
+
+
+
+```
+
+
+---
+
+## 7. CHECKING FOR MULTICOLLINEARITY
+
+```{r}
+
+vif(logreg)
+
+
+```
+
+
+---
+## 8.   AIC
+
+```{r}
+
+AIC(logreg)
+
+
+```
+
+
+
+
+---
+
+
+
+---------------------------------------------------------------------------------------------------------------
+7. Finding the most insignificant factors as part of hypothesis
+
+
+
+```{r,collapse=TRUE}
+
+p_values <- summary(logreg)$coefficients[,4]
+original_p_values <- p_values[-1]
+original_names <- sub("heart_data\\$", "", names(original_p_values))
+print(original_p_values)
+p_values <- p_values[p_values > 0.05]
+var_names <- sub("heart_data\\$", "", names(p_values))
+
+cat("\nThe insignificant factors are (with greater p-values (>0.05)):\n")
+for (i in var_names){
+  cat("\n",i)
+}
+
+barplot(original_p_values,names.arg = original_names, xlab="P-values", main="P-values plot", horiz=TRUE,las=1, cex.names=0.4,col = "blue")
+
+
+```
+
+
+---
+
+
+```{r}
+
+# Perform Wald test for BMI variable
+waldtest(logreg, terms = "heart_data$BMI")
+
+cat("\nP-value of WaldTest for BMI variable:\t",waldtest(logreg, terms = "heart_data$BMI")$Pr[2])
+cat("\nP-value of WaldTest for Fruits variable:\t",waldtest(logreg, terms = "heart_data$Fruits")$Pr[2])
+cat("\nP-value of WaldTest for AnyHealthcare variable:\t",waldtest(logreg, terms = "heart_data$AnyHealthcare")$Pr[2])
+cat("\nP-value of WaldTest for PhysHlth variable:\t",waldtest(logreg, terms = "heart_data$PhysHlth")$Pr[2])
+cat("\nP-value of WaldTest for Education variable:\t",waldtest(logreg, terms = "heart_data$Education")$Pr[2])
+
+
+```
+
+
+
+
+
